@@ -84,6 +84,12 @@ var (
 			Help: "Total number of errors encountered while reading the logs",
 		},
 	)
+	connectionRefusedCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: prometheus.BuildFQName("exim", "", "connection_refused"),
+			Help: "Total number of connection refused encountered while contacting remote SMTP servers",
+		},
+	)
 )
 
 var processFlags = map[string]string{
@@ -311,6 +317,9 @@ func (e *Exporter) TailMainLog(lines chan *tail.Line) {
 			eximMessages.With(prometheus.Labels{"flag": "failed"}).Inc()
 		case "==":
 			eximMessages.With(prometheus.Labels{"flag": "deferred"}).Inc()
+			if strings.Contains(line.Text, "Connection refused") {
+				connectionRefusedCounter.Inc()
+			}
 		case "Completed":
 			eximMessages.With(prometheus.Labels{"flag": "completed"}).Inc()
 		}
@@ -347,6 +356,7 @@ func init() {
 	prometheus.MustRegister(eximReject)
 	prometheus.MustRegister(eximPanic)
 	prometheus.MustRegister(readErrors)
+	prometheus.MustRegister(connectionRefusedCounter)
 }
 
 func main() {
